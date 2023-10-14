@@ -13,16 +13,25 @@ struct Matrix2x2 {
 struct Vector2 {
 	float x;
 	float y;
+
+	// ベクトルの足し算
+	Vector2 operator+(Vector2 other) {
+		Vector2 ans;
+		ans.x = x;
+		ans.y = y;
+
+		ans.x += other.x;
+		ans.y += other.y;
+
+		return ans;
+	}
 };
 
-// 行列の積を求める関数
-Matrix2x2 Multiply(Matrix2x2 matrix1, Matrix2x2 matrix2) {
-	Matrix2x2 result;
-	result.m[0][0] = (matrix1.m[0][0] * matrix2.m[0][0]) + (matrix1.m[0][1] * matrix2.m[1][0]);
-	result.m[0][1] = (matrix1.m[0][0] * matrix2.m[0][1]) + (matrix1.m[0][1] * matrix2.m[1][1]);
-
-	result.m[1][0] = (matrix1.m[1][0] * matrix2.m[0][0]) + (matrix1.m[1][1] * matrix2.m[1][0]);
-	result.m[1][1] = (matrix1.m[1][0] * matrix2.m[0][1]) + (matrix1.m[1][1] * matrix2.m[1][1]);
+// ベクトルと行列の積を求める関数
+Vector2 Multiply(Vector2 vector, Matrix2x2 matrix) {
+	Vector2 result;
+	result.x = (vector.x * matrix.m[0][0]) + (vector.y * matrix.m[1][0]);
+	result.y = (vector.x * matrix.m[0][1]) + (vector.y * matrix.m[1][1]);
 
 	return result;
 }
@@ -34,7 +43,9 @@ Matrix2x2 MakeRotateMatrix(float theta) {
 	result.m[0][1] = sinf(theta);
 
 	result.m[1][0] = -sinf(theta);
-	result.m[1][1] = cos(theta);
+	result.m[1][1] = cosf(theta);
+
+	return result;
 }
 
 // 座標変換を行う関数
@@ -45,6 +56,7 @@ Vector2 WorldToScreen(Vector2 world) {
 	};
 	return screen;
 }
+
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
@@ -58,8 +70,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	// 矩形の情報
 	Vector2 centerPos = { 400.0f,100.0f };
-	float width = 100.0f;
-	float height = 200.0f;
+	float width = 200.0f;
+	float height = 100.0f;
+
+	float theta = 0.0f;
+
+	//白いテクスチャの読み込み
+	int whiteTextureHandle = Novice::LoadTexture("white1x1.png");
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -73,12 +90,45 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		/// ↓更新処理ここから
 		///
+		
+		// 矩形を構成する4頂点を原点を中心に設定
+		Vector2 leftTop = { -width / 2, -height / 2 };
+		Vector2 rightTop = { width / 2, -height / 2 };
+		Vector2 leftBottom = { -width / 2, height / 2 };
+		Vector2 rightBottom = { width / 2,height / 2 };
 
-		// 矩形を構成する4頂点
-		Vector2 leftTop = { centerPos.x - width / 2,centerPos.y - height / 2 };
-		Vector2 rightTop = { centerPos.x + width / 2,centerPos.y - height / 2 };
-		Vector2 leftBottom = { centerPos.x - width / 2,centerPos.y + height / 2 };
-		Vector2 rightBottom = { centerPos.x + width / 2,centerPos.y + height / 2 };
+		// 角度を毎フレーム増加
+		theta += (3.0f * (float)M_PI) / 180.0f;
+
+		// 回転行列を作成
+		Matrix2x2 rotateMatrix = MakeRotateMatrix(theta);
+
+		// 4頂点を全て回転させる
+		Vector2 rotatedLeftTop = Multiply(leftTop, rotateMatrix);
+
+		Vector2 rotatedRightTop = Multiply(rightTop, rotateMatrix);
+
+		Vector2 rotatedLeftBottom = Multiply(leftBottom, rotateMatrix);
+
+		Vector2 rotatedRightBottom = Multiply(rightBottom, rotateMatrix);
+
+		// 4頂点を移動させる
+		Vector2 movedLeftTop = rotatedLeftTop + centerPos;
+
+		Vector2 movedRightTop = rotatedRightTop + centerPos;
+
+		Vector2 movedLeftBottom = rotatedLeftBottom + centerPos;
+
+		Vector2 movedRightBottom = rotatedRightBottom + centerPos;
+
+		// 4頂点の座標をスクリーン座標に変換
+		Vector2 screenLeftTop = WorldToScreen(movedLeftTop);
+
+		Vector2 screenRightTop = WorldToScreen(movedRightTop);
+
+		Vector2 screenLeftBottom = WorldToScreen(movedLeftBottom);
+
+		Vector2 screenRightBottom = WorldToScreen(movedRightBottom);
 
 		///
 		/// ↑更新処理ここまで
@@ -88,7 +138,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
-		//test
+		// 矩形の描画
+		Novice::DrawQuad(
+			static_cast<int>(screenLeftTop.x), static_cast<int>(screenLeftTop.y),
+			static_cast<int>(screenRightTop.x), static_cast<int>(screenRightTop.y),
+			static_cast<int>(screenLeftBottom.x), static_cast<int>(screenLeftBottom.y),
+			static_cast<int>(screenRightBottom.x), static_cast<int>(screenRightBottom.y),
+			0, 0,
+			static_cast<int>(width), static_cast<int>(height),
+			whiteTextureHandle,
+			0xFFFFFFFF
+		);
 
 		///
 		/// ↑描画処理ここまで
